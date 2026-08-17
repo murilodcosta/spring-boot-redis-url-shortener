@@ -18,14 +18,14 @@ class Base62EncoderTest {
             "1000, g8",
             "123456, w7e"
     })
-    @DisplayName("Deve codificar numeros inteiros positivos em Base62 corretamente")
+    @DisplayName("Should encode positive integers to Base62 correctly")
     void shouldEncodeNumberToBase62(long input, String expected) {
         String encoded = Base62Encoder.encode(input);
         assertEquals(expected, encoded);
     }
 
     @Test
-    @DisplayName("Deve decodificar strings em Base62 de volta para o numero original")
+    @DisplayName("Should decode Base62 strings back to the original positive integer")
     void shouldDecodeBase62ToOriginalNumber() {
         long original = 123456789L;
         String encoded = Base62Encoder.encode(original);
@@ -35,7 +35,7 @@ class Base62EncoderTest {
     }
 
     @Test
-    @DisplayName("Deve lancar excecao ao tentar codificar numero menor ou igual a zero")
+    @DisplayName("Should throw IllegalArgumentException when attempting to encode zero or negative numbers")
     void shouldThrowExceptionForZeroOrNegativeNumber() {
         assertThrows(IllegalArgumentException.class, () -> Base62Encoder.encode(0));
         assertThrows(IllegalArgumentException.class, () -> Base62Encoder.encode(-5));

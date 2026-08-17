@@ -38,7 +38,7 @@ class UrlShortenerServiceTest {
     }
 
     @Test
-    @DisplayName("Should shorten URL successfully when valid request is provided")
+    @DisplayName("Should shorten URL successfully generating the correct Base62 shortCode")
     void shouldShortenUrlSuccessfully() {
         ShortenRequest request = new ShortenRequest("https://google.com", null);
 
@@ -62,7 +62,7 @@ class UrlShortenerServiceTest {
     }
 
     @Test
-    @DisplayName("Should resolve short code successfully when it exists and is not expired")
+    @DisplayName("Should resolve shortened URL successfully when valid")
     void shouldResolveShortCodeSuccessfully() {
         UrlMapping entity = UrlMapping.builder()
                 .id(1L)
@@ -79,7 +79,7 @@ class UrlShortenerServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw UrlNotFoundException when short code does not exist")
+    @DisplayName("Should throw UrlNotFoundException when shortCode does not exist")
     void shouldThrowUrlNotFoundExceptionWhenCodeDoesNotExist() {
         when(repository.findByShortCode("invalid")).thenReturn(Optional.empty());
 
@@ -87,7 +87,7 @@ class UrlShortenerServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw UrlExpiredException when short code is expired")
+    @DisplayName("Should throw UrlExpiredException when URL is expired")
     void shouldThrowUrlExpiredExceptionWhenUrlIsExpired() {
         UrlMapping expiredEntity = UrlMapping.builder()
                 .id(2L)

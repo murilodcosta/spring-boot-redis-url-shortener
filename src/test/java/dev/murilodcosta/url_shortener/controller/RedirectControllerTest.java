@@ -1,5 +1,6 @@
 package dev.murilodcosta.url_shortener.controller;
 
+import dev.murilodcosta.url_shortener.exception.UrlExpiredException;
 import dev.murilodcosta.url_shortener.exception.UrlNotFoundException;
 import dev.murilodcosta.url_shortener.service.UrlShortenerService;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +43,19 @@ class RedirectControllerTest {
         mockMvc.perform(get("/invalid"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.error").value("Not Found"));
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message").value("URL not found for short code: invalid"));
+    }
+
+    @Test
+    @DisplayName("GET /{shortCode} should return 410 Gone when shortCode has expired")
+    void shouldReturn410GoneWhenShortCodeHasExpired() throws Exception {
+        when(urlShortenerService.resolveUrl("expired123")).thenThrow(new UrlExpiredException("expired123"));
+
+        mockMvc.perform(get("/expired123"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.status").value(410))
+                .andExpect(jsonPath("$.error").value("Gone"))
+                .andExpect(jsonPath("$.message").value("The shortened URL with code 'expired123' has expired"));
     }
 }

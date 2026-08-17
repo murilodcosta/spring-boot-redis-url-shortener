@@ -28,7 +28,7 @@ class UrlControllerTest {
     private UrlShortenerService urlShortenerService;
 
     @Test
-    @DisplayName("Should return 201 Created when request is valid")
+    @DisplayName("POST /api/urls should return 201 Created with JSON response when request is valid")
     void shouldReturn201CreatedWhenRequestIsValid() throws Exception {
         ShortenResponse mockResponse = new ShortenResponse(
                 "w7e",
@@ -57,11 +57,11 @@ class UrlControllerTest {
     }
 
     @Test
-    @DisplayName("Should return 400 Bad Request when URL is invalid")
+    @DisplayName("POST /api/urls should return 400 Bad Request when url is invalid")
     void shouldReturn400BadRequestWhenUrlIsInvalid() throws Exception {
         String invalidRequestBody = """
                 {
-                    "url": "nao-e-uma-url-valida"
+                    "url": "invalid-url-format"
                 }
                 """;
 
@@ -70,6 +70,8 @@ class UrlControllerTest {
                         .content(invalidRequestBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Bad Request"));
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Validation error in the provided fields"))
+                .andExpect(jsonPath("$.validationErrors.url").exists());
     }
 }

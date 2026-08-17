@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
-                "Erro de validação nos campos informados",
+                "Validation error in the provided fields",
                 errors
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
@@ -54,7 +54,7 @@ public class GlobalExceptionHandler {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
-                "Ocorreu um erro interno inesperado: " + ex.getMessage()
+                "An unexpected internal error occurred: " + ex.getMessage()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }

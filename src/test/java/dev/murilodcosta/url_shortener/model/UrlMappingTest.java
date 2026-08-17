@@ -3,36 +3,42 @@ package dev.murilodcosta.url_shortener.model;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
+
 class UrlMappingTest {
 
     @Test
-    @DisplayName("Test isExpired method when expiresAt is null")
-    void testIsExpiredWhenExpiresAtIsNull() {
-        UrlMapping urlMapping = UrlMapping.builder()
-                .longUrl("https://example.com")
+    @DisplayName("Should not be expired when expiresAt is null")
+    void shouldNotBeExpiredWhenExpiresAtIsNull() {
+        UrlMapping mapping = UrlMapping.builder()
+                .longUrl("https://google.com")
                 .expiresAt(null)
                 .build();
-        assertFalse(urlMapping.isExpired(), "Expected isExpired to return false when expiresAt is null");
+
+        assertFalse(mapping.isExpired());
     }
 
     @Test
-    @DisplayName("Test isExpired method when expiresAt is in the future")
-    void testIsExpiredWhenExpiresAtIsInTheFuture() {
-        UrlMapping urlMapping = UrlMapping.builder()
-                .longUrl("https://example.com")
-                .expiresAt(java.time.LocalDateTime.now().plusDays(1))
+    @DisplayName("Should not be expired when expiresAt is in the future")
+    void shouldNotBeExpiredWhenExpiresAtIsInTheFuture() {
+        UrlMapping mapping = UrlMapping.builder()
+                .longUrl("https://google.com")
+                .expiresAt(LocalDateTime.now().plusHours(1))
                 .build();
-        assertFalse(urlMapping.isExpired(), "Expected isExpired to return false when expiresAt is in the future");
+
+        assertFalse(mapping.isExpired());
     }
 
     @Test
-    @DisplayName("Test isExpired method when expiresAt is in the past")
-    void testIsExpiredWhenExpiresAtIsInThePast() {
-        UrlMapping urlMapping = UrlMapping.builder()
-                .longUrl("https://example.com")
-                .expiresAt(java.time.LocalDateTime.now().minusDays(1))
+    @DisplayName("Should be expired when expiresAt is in the past")
+    void shouldBeExpiredWhenExpiresAtIsInThePast() {
+        UrlMapping mapping = UrlMapping.builder()
+                .longUrl("https://google.com")
+                .expiresAt(LocalDateTime.now().minusMinutes(1))
                 .build();
-        assertTrue(urlMapping.isExpired(), "Expected isExpired to return true when expiresAt is in the past");
+
+        assertTrue(mapping.isExpired());
     }
 }
