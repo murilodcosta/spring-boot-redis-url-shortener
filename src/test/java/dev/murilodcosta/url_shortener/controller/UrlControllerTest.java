@@ -1,7 +1,9 @@
 package dev.murilodcosta.url_shortener.controller;
 
 import dev.murilodcosta.url_shortener.dto.ShortenResponse;
+import dev.murilodcosta.url_shortener.service.RateLimiterService;
 import dev.murilodcosta.url_shortener.service.UrlShortenerService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -26,6 +28,14 @@ class UrlControllerTest {
 
     @MockitoBean
     private UrlShortenerService urlShortenerService;
+
+    @MockitoBean
+    private RateLimiterService rateLimiterService;
+
+    @BeforeEach
+    void setUp() {
+        when(rateLimiterService.tryConsume(any(), any(), anyInt(), anyDouble())).thenReturn(true);
+    }
 
     @Test
     @DisplayName("POST /api/urls should return 201 Created with JSON response when request is valid")
