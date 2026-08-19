@@ -2,6 +2,7 @@ package dev.murilodcosta.url_shortener.controller;
 
 import dev.murilodcosta.url_shortener.exception.UrlExpiredException;
 import dev.murilodcosta.url_shortener.exception.UrlNotFoundException;
+import dev.murilodcosta.url_shortener.service.ClickTrackingService;
 import dev.murilodcosta.url_shortener.service.RateLimiterService;
 import dev.murilodcosta.url_shortener.service.UrlShortenerService;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,7 +14,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -31,19 +32,24 @@ class RedirectControllerTest {
     @MockitoBean
     private RateLimiterService rateLimiterService;
 
+    @MockitoBean
+    private ClickTrackingService clickTrackingService;
+
     @BeforeEach
     void setUp() {
         when(rateLimiterService.tryConsume(any(), any(), anyInt(), anyDouble())).thenReturn(true);
     }
 
     @Test
-    @DisplayName("GET /{shortCode} should return 302 Found with Location header when shortCode exists")
+    @DisplayName("GET /{shortCode} should return 302 Found with Location header and register click asynchronously")
     void shouldReturn302FoundWithLocationHeader() throws Exception {
         when(urlShortenerService.resolveUrl("w7e")).thenReturn("https://google.com");
 
         mockMvc.perform(get("/w7e"))
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", "https://google.com"));
+
+        verify(clickTrackingService, times(1)).registerClick("w7e");
     }
 
     @Test

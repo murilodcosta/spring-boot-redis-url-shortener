@@ -1,0 +1,2 @@
+ALTER TABLE url_mappings
+    ADD COLUMN click_count BIGINT NOT NULL DEFAULT 0;

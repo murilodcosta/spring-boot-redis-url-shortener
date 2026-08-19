@@ -39,6 +39,10 @@ public class UrlMapping {
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
+    @Builder.Default
+    @Column(name = "click_count", nullable = false)
+    private Long clickCount = 0L;
+
     public boolean isExpired() {
         return expiresAt != null && LocalDateTime.now().isAfter(expiresAt);
     }
