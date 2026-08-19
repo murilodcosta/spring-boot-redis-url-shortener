@@ -5,6 +5,8 @@ import dev.murilodcosta.url_shortener.exception.UrlNotFoundException;
 import dev.murilodcosta.url_shortener.service.ClickTrackingService;
 import dev.murilodcosta.url_shortener.service.RateLimiterService;
 import dev.murilodcosta.url_shortener.service.UrlShortenerService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,9 +37,14 @@ class RedirectControllerTest {
     @MockitoBean
     private ClickTrackingService clickTrackingService;
 
+    @MockitoBean
+    private MeterRegistry meterRegistry;
+
     @BeforeEach
     void setUp() {
-        when(rateLimiterService.tryConsume(any(), any(), anyInt(), anyDouble())).thenReturn(true);
+        Counter counter = mock(Counter.class);
+        lenient().when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
+        lenient().when(rateLimiterService.tryConsume(any(), any(), anyInt(), anyDouble())).thenReturn(true);
     }
 
     @Test

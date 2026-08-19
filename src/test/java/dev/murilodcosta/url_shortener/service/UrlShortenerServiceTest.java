@@ -6,11 +6,11 @@ import dev.murilodcosta.url_shortener.exception.UrlExpiredException;
 import dev.murilodcosta.url_shortener.exception.UrlNotFoundException;
 import dev.murilodcosta.url_shortener.model.UrlMapping;
 import dev.murilodcosta.url_shortener.repository.UrlMappingRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -37,14 +37,15 @@ class UrlShortenerServiceTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
-    @InjectMocks
+    private SimpleMeterRegistry meterRegistry;
     private UrlShortenerService service;
-
     private String baseUrl;
 
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:8080";
+        meterRegistry = new SimpleMeterRegistry();
+        service = new UrlShortenerService(repository, redisTemplate, meterRegistry);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
@@ -78,7 +79,7 @@ class UrlShortenerServiceTest {
     }
 
     @Test
-    @DisplayName("Should resolve URL from Redis cache on Cache Hit without querying database")
+    @DisplayName("Should resolve URL from Redis cache on Cache Hit without querying database and increment hit metric")
     void shouldResolveUrlFromCacheWhenCacheHit() {
         when(valueOperations.get("url:w7e")).thenReturn("https://cached-google.com");
 
@@ -88,10 +89,13 @@ class UrlShortenerServiceTest {
 
         // Verify PostgreSQL was NEVER queried (0 database hits!)
         verify(repository, never()).findByShortCode(anyString());
+
+        // Verify Cache Hit metric was incremented
+        assertEquals(1.0, meterRegistry.get("cache.access").tag("result", "hit").counter().count());
     }
 
     @Test
-    @DisplayName("Should resolve URL from database and populate Redis cache on Cache Miss")
+    @DisplayName("Should resolve URL from database and populate Redis cache on Cache Miss and increment miss metric")
     void shouldResolveUrlFromDatabaseAndPopulateCacheWhenCacheMiss() {
         when(valueOperations.get("url:1")).thenReturn(null); // Cache miss
 
@@ -113,6 +117,9 @@ class UrlShortenerServiceTest {
 
         // Verify Redis cache was populated with default TTL
         verify(valueOperations, times(1)).set(eq("url:1"), eq("https://spring.io"), eq(Duration.ofDays(7)));
+
+        // Verify Cache Miss metric was incremented
+        assertEquals(1.0, meterRegistry.get("cache.access").tag("result", "miss").counter().count());
     }
 
     @Test

@@ -3,6 +3,8 @@ package dev.murilodcosta.url_shortener.controller;
 import dev.murilodcosta.url_shortener.dto.ShortenResponse;
 import dev.murilodcosta.url_shortener.service.RateLimiterService;
 import dev.murilodcosta.url_shortener.service.UrlShortenerService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,9 +36,14 @@ class UrlControllerTest {
     @MockitoBean
     private RateLimiterService rateLimiterService;
 
+    @MockitoBean
+    private MeterRegistry meterRegistry;
+
     @BeforeEach
     void setUp() {
-        when(rateLimiterService.tryConsume(any(), any(), anyInt(), anyDouble())).thenReturn(true);
+        Counter counter = mock(Counter.class);
+        lenient().when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
+        lenient().when(rateLimiterService.tryConsume(any(), any(), anyInt(), anyDouble())).thenReturn(true);
     }
 
     @Test

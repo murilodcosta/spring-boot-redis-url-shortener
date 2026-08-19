@@ -7,6 +7,7 @@ import dev.murilodcosta.url_shortener.exception.UrlNotFoundException;
 import dev.murilodcosta.url_shortener.model.UrlMapping;
 import dev.murilodcosta.url_shortener.repository.UrlMappingRepository;
 import dev.murilodcosta.url_shortener.util.Base62Encoder;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -26,6 +27,7 @@ public class UrlShortenerService {
 
     private final UrlMappingRepository urlMappingRepository;
     private final RedisTemplate<String, String> redisTemplate;
+    private final MeterRegistry meterRegistry;
 
     @Transactional
     public ShortenResponse shortenUrl(ShortenRequest request, String baseUrl) {
@@ -72,6 +74,7 @@ public class UrlShortenerService {
         try {
             String cachedUrl = redisTemplate.opsForValue().get(cacheKey);
             if (cachedUrl != null) {
+                meterRegistry.counter("cache.access", "result", "hit").increment();
                 log.debug("Cache hit for shortCode: {}", shortCode);
                 return cachedUrl;
             }
@@ -79,6 +82,7 @@ public class UrlShortenerService {
             log.warn("Redis unavailable during resolveUrl for key {}. Falling back to PostgreSQL. Error: {}", cacheKey, ex.getMessage());
         }
 
+        meterRegistry.counter("cache.access", "result", "miss").increment();
         log.debug("Cache miss for shortCode: {}. Querying PostgreSQL.", shortCode);
 
         // 2. Cache Miss: Query PostgreSQL database

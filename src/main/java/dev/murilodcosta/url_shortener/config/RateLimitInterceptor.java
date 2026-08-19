@@ -1,6 +1,7 @@
 package dev.murilodcosta.url_shortener.config;
 
 import dev.murilodcosta.url_shortener.service.RateLimiterService;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     private final RateLimiterService rateLimiterService;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -26,17 +28,20 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         String method = request.getMethod();
 
         boolean allowed;
+        String routeName;
+
         if ("POST".equalsIgnoreCase(method) && uri.startsWith("/api/urls")) {
-            // Creation route: more restrictive (10 requests per minute)
-            allowed = rateLimiterService.tryConsume(clientIp, "shorten", 10, 10.0 / 60.0);
+            routeName = "shorten";
+            allowed = rateLimiterService.tryConsume(clientIp, routeName, 10, 10.0 / 60.0);
         } else if ("GET".equalsIgnoreCase(method) && !uri.startsWith("/actuator") && !uri.startsWith("/api")) {
-            // Redirect route: high throughput (100 requests per second)
-            allowed = rateLimiterService.tryConsume(clientIp, "redirect", 100, 100.0);
+            routeName = "redirect";
+            allowed = rateLimiterService.tryConsume(clientIp, routeName, 100, 100.0);
         } else {
-            allowed = true;
+            return true;
         }
 
         if (!allowed) {
+            meterRegistry.counter("ratelimit.requests", "route", routeName, "result", "rejected").increment();
             log.warn("Rate limit exceeded for IP: {} on [{}] {}", clientIp, method, uri);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -51,6 +56,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        meterRegistry.counter("ratelimit.requests", "route", routeName, "result", "allowed").increment();
         return true;
     }
 
