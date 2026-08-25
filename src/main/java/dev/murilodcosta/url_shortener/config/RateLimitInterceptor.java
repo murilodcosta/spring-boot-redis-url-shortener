@@ -33,7 +33,11 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if ("POST".equalsIgnoreCase(method) && uri.startsWith("/api/urls")) {
             routeName = "shorten";
             allowed = rateLimiterService.tryConsume(clientIp, routeName, 10, 10.0 / 60.0);
-        } else if ("GET".equalsIgnoreCase(method) && !uri.startsWith("/actuator") && !uri.startsWith("/api")) {
+        } else if ("GET".equalsIgnoreCase(method) 
+                && !uri.startsWith("/actuator") 
+                && !uri.startsWith("/api")
+                && !uri.startsWith("/swagger-ui")
+                && !uri.startsWith("/v3/api-docs")) {
             routeName = "redirect";
             allowed = rateLimiterService.tryConsume(clientIp, routeName, 100, 100.0);
         } else {
