@@ -3,8 +3,10 @@ package dev.murilodcosta.url_shortener.exception;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -46,6 +48,21 @@ class GlobalExceptionHandlerTest {
         assertEquals(410, response.getBody().status());
         assertEquals("Gone", response.getBody().error());
         assertEquals("The shortened URL with code 'expiredCode' has expired", response.getBody().message());
+        assertNotNull(response.getBody().timestamp());
+    }
+
+    @Test
+    @DisplayName("Should handle NoResourceFoundException and return 404 Not Found")
+    void shouldHandleNoResourceFoundException() {
+        NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/static/file.css", "Resource not found");
+
+        ResponseEntity<ErrorResponse> response = exceptionHandler.handleNoResourceFound(ex);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(404, response.getBody().status());
+        assertEquals("Not Found", response.getBody().error());
         assertNotNull(response.getBody().timestamp());
     }
 
