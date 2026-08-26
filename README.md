@@ -1,81 +1,11 @@
-# High-Performance Distributed URL Shortener
+# URL Shortener
 
-[![CI/CD Pipeline](https://github.com/murilodcosta/url-shortener/actions/workflows/ci.yml/badge.svg)](https://github.com/murilodcosta/url-shortener/actions/workflows/ci.yml)
-[![Java Version](https://img.shields.io/badge/Java-21-blue.svg)](https://www.oracle.com/java/technologies/downloads/#java21)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-
-A production-grade, high-throughput distributed URL Shortener backend engineered for ultra-low latency, resilience, and horizontal scalability. Built with Java 21 Virtual Threads, Spring Boot, Redis Cache-Aside, Token Bucket Rate Limiting, and full Observability via Prometheus and Grafana.
+A production-ready, URL Shortener backend engineered for horizontal scalability. Built with Java 21, Spring Boot, PostgreSQL, Redis (cache-aside, rate limiting), and Observability via Prometheus and Grafana.
 
 ---
 
 ## Architecture Overview
-
-```mermaid
-flowchart TD
-    Client[Client / Browser / API Consumer] --> RateLimit[RateLimitInterceptor]
-    
-    subgraph Edge Layer
-        RateLimit -->|Lua Script Check| RedisRL[(Redis Token Bucket)]
-    end
-    
-    RateLimit -->|Allowed| Controllers[Controllers Layer]
-    
-    subgraph Application Core
-        Controllers -->|POST /api/urls| ShortenService[UrlShortenerService]
-        Controllers -->|GET /{shortCode}| RedirectService[UrlShortenerService]
-        Controllers -.->|Async Fire & Forget| ClickService[ClickTrackingService]
-    end
-    
-    subgraph Storage & Caching Layer
-        ShortenService -->|Sequence ID Generation| Postgres[(PostgreSQL 16)]
-        ShortenService -->|Cache Warm-up| RedisCache[(Redis Cache)]
-        RedirectService -->|1. Cache-Aside Lookup| RedisCache
-        RedirectService -.->|2. Fallback on Miss/Failure| Postgres
-        ClickService -->|Atomic INCR clicks:code| RedisClicks[(Redis Click Buffers)]
-        ScheduledJob[ClickCountSyncJob - Fixed Rate] -->|Atomic GETDEL & Batch Sync| RedisClicks
-        ScheduledJob -->|Batch UPDATE click_count| Postgres
-    end
-
-    subgraph Observability
-        ShortenService & RateLimit --> MeterRegistry[Micrometer]
-        MeterRegistry --> Actuator["/actuator/prometheus"]
-        Prometheus[Prometheus Server :9090] -->|Scrape Every 5s| Actuator
-        Grafana[Grafana :3000] -->|Query PromQL| Prometheus
-    end
-```
-
----
-
-## Key Architectural Decisions
-
-### 1. Collision-Free Base62 Encoding
-- Utilizes PostgreSQL sequences to generate monotonically increasing 64-bit numerical identifiers.
-- Converts numerical identifiers into compact alphanumeric Base62 strings (`[0-9a-zA-Z]`).
-- Guarantees $O(1)$ computation with mathematical collision prevention, eliminating the need for iterative database collision checks.
-
-### 2. High-Performance Cache-Aside with Redis
-- **Cache Warm-Up**: Shortened URLs are populated into Redis memory at the instant of creation.
-- **Microsecond Redirects**: Subsequent redirect requests are served entirely from Redis RAM with zero database disk reads.
-- **Dynamic TTL Management**: Time-To-Live expiration in Redis matches the exact user-defined link lifetime.
-- **Graceful Degradation**: If Redis experiences network degradation or downtime, the application falls back to PostgreSQL without interrupting service.
-
-### 3. Distributed Token Bucket Rate Limiting
-- Enforces granular rate limits per client IP address via an atomic Lua script executed inside Redis:
-  - `POST /api/urls`: 10 requests per minute per IP.
-  - `GET /{shortCode:[a-zA-Z0-9]+}`: 100 requests per second per IP.
-- Operates under a **Fail-Open** strategy to preserve system availability during cache failures.
-
-### 4. Asynchronous Write-Behind Click Tracking
-- Resolves PostgreSQL row-lock contention under high concurrency.
-- Redirect requests increment an in-memory counter in Redis (`INCR clicks:{shortCode}`) asynchronously via a dedicated `ThreadPoolTaskExecutor`.
-- A scheduled background job executes atomically (`GETDEL`) every 60 seconds to synchronize accumulated counts into PostgreSQL in batch transactions.
-
-### 5. Concurrency Model: Java 21 Virtual Threads
-- Virtual Threads (`spring.threads.virtual.enabled: true`) enable processing thousands of concurrent I/O-bound requests with negligible memory overhead compared to traditional platform thread models.
-
-### 6. RFC 7807 Standardized Exception Shielding
-- Centralized `@RestControllerAdvice` translates business domain exceptions (`UrlNotFoundException`, `UrlExpiredException`, `MethodArgumentNotValidException`, `NoResourceFoundException`) into consistent JSON payloads without exposing internal stack traces.
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/d901695b-0c57-4007-932c-98274716e7cf" />
 
 ---
 
@@ -90,13 +20,6 @@ flowchart TD
 - **DevOps & CI/CD**: Docker (Multi-Stage Build), Docker Compose, GitHub Actions
 
 ---
-
-## API Documentation
-
-Interactive Swagger UI documentation is available when running the application:
-
-- **Swagger UI**: `http://localhost:8080/swagger-ui/index.html`
-- **OpenAPI Schema (JSON)**: `http://localhost:8080/v3/api-docs`
 
 ### Core Endpoints
 
@@ -213,15 +136,26 @@ src/
 
 ---
 
-## CI/CD Pipeline
+## Key Architectural Decisions
 
-Continuous Integration is automated using GitHub Actions (`.github/workflows/ci.yml`):
-1. Code checkout and setup of JDK 21 (Eclipse Temurin) with Maven dependency caching.
-2. Execution of the automated test suite.
-3. Multi-stage Docker image packaging for deployment readiness.
+### 1. Collision-Free Base62 Encoding
+- Utilizes PostgreSQL sequences to generate 64-bit numerical identifiers.
+- Converts numerical identifiers into compact alphanumeric Base62 strings (`[0-9a-zA-Z]`).
+- Guarantees $O(1)$ computation with mathematical collision prevention, eliminating the need for iterative database collision checks.
 
----
+### 2. Cache-Aside with Redis
+- **Cache Warm-Up**: Shortened URLs are populated into Redis memory at the instant of creation.
+- **Microsecond Redirects**: Subsequent redirect requests are served entirely from Redis RAM with zero database disk reads.
+- **Dynamic TTL Management**: Time-To-Live expiration in Redis matches the exact user-defined link lifetime.
+- **Graceful Degradation**: If Redis experiences network degradation or downtime, the application falls back to PostgreSQL without interrupting service.
 
-## License
+### 3. Token Bucket Rate Limiting
+- Enforces granular rate limits per client IP address via an atomic Lua script executed inside Redis:
+  - `POST /api/urls`: 10 requests per minute per IP.
+  - `GET /{shortCode:[a-zA-Z0-9]+}`: 100 requests per second per IP.
+- Operates under a **Fail-Open** strategy to preserve system availability during cache failures.
 
-This project is open-source software licensed under the [MIT License](LICENSE).
+### 4. Asynchronous Write-Behind Click Tracking
+- Resolves PostgreSQL row-lock contention under high concurrency.
+- Redirect requests increment an in-memory counter in Redis (`INCR clicks:{shortCode}`) asynchronously via a dedicated `ThreadPoolTaskExecutor`.
+- A scheduled background job executes atomically (`GETDEL`) every 60 seconds to synchronize accumulated counts into PostgreSQL in batch transactions.
