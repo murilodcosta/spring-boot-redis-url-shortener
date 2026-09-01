@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/murilodcosta/url-shortener:latest
+    image: ghcr.io/murilodcosta/spring-boot-redis-url-shortener:latest
     build: .
     container_name: urlshortener-app
     environment:
