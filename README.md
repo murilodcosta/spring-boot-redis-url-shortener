@@ -1,6 +1,8 @@
 # URL Shortener
 
-A production-ready, URL Shortener backend engineered for horizontal scalability. Built with Java 21, Spring Boot, PostgreSQL, Redis (cache-aside, rate limiting), and Observability via Prometheus and Grafana.
+[![CI/CD Pipeline](https://github.com/murilodcosta/spring-boot-redis-url-shortener/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/murilodcosta/spring-boot-redis-url-shortener/actions/workflows/ci-cd.yml)
+
+A production-ready URL Shortener backend engineered for horizontal scalability and high throughput. Built with Java 21, Spring Boot, PostgreSQL, Redis (cache-aside, atomic token bucket rate limiting, asynchronous click tracking), and full observability via Prometheus and Grafana. Fully automated via a multi-stage GitHub Actions CI/CD pipeline deploying directly to an Azure Linux Virtual Machine with post-deploy smoke tests.
 
 ---
 
@@ -11,13 +13,32 @@ A production-ready, URL Shortener backend engineered for horizontal scalability.
 
 ## Technology Stack
 
-- **Core Framework**: Java 21, Spring Boot, Spring WebMVC, Spring Data JPA, Spring Data Redis
-- **Database & Migration**: PostgreSQL 16, Flyway Migration
-- **Caching & Rate Limiting**: Redis 7 (Alpine), Lua Scripting
+- **Core Framework**: Java 21 (Virtual Threads enabled), Spring Boot, Spring WebMVC, Spring Data JPA, Spring Data Redis
+- **Database & Migration**: PostgreSQL 16, Flyway Migration (strict versioning)
+- **Caching & Rate Limiting**: Redis 7 (Alpine), Atomic Lua Scripts (`token_bucket.lua`)
 - **Observability**: Spring Boot Actuator, Micrometer, Prometheus, Grafana
-- **Testing**: JUnit 5, Mockito, MockMvc, Testcontainers, SimpleMeterRegistry, Grafana k6
+- **Testing Suite**: JUnit 5, Mockito, MockMvc, Testcontainers (PostgreSQL), Grafana k6
 - **Documentation**: OpenAPI 3.0, Springdoc Swagger UI
-- **DevOps & CI/CD**: Docker (Multi-Stage Build), Docker Compose, GitHub Actions
+- **DevOps & Cloud Deployment**: Multi-Stage Dockerfile, Docker Compose, GitHub Actions, GitHub Container Registry (`ghcr.io`), Azure Virtual Machine (Ubuntu 24.04 LTS)
+
+---
+
+## CI/CD & Automated Cloud Deployment
+
+The repository is configured with an end-to-end automated pipeline in GitHub Actions ([`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml)):
+
+```text
++-----------------------+     +-------------------------------+     +---------------------------+     +------------------------------+
+| 1. Run Automated      | --> | 2. Build & Push Docker Image  | --> | 3. Deploy to Azure VM     | --> | 4. Post-Deploy Smoke Test    |
+|    Tests (Maven +     |     |    to GHCR                    |     |    via SSH (Zero Downtime |     |    (Polling /actuator/health |
+|    Testcontainers)    |     |    (Multi-Stage Container)    |     |    Container Restart)     |     |    for HTTP 200 UP)          |
++-----------------------+     +-------------------------------+     +---------------------------+     +------------------------------+
+```
+
+1. **Automated Testing (`test`)**: Spins up real PostgreSQL containers via Testcontainers on Ubuntu runners and executes all unit and integration test suites.
+2. **Package Publishing (`build-and-push`)**: Builds an optimized, non-root Linux container image and pushes immutable tags (`latest`, `sha-<commit>`) to GitHub Container Registry (`ghcr.io`).
+3. **Continuous Deployment (`deploy`)**: Connects securely via SSH to the Azure Virtual Machine, updates the compose definition, pulls the new image, and restarts the application container with zero database interruption.
+4. **Post-Deployment Verification (`smoke-test`)**: Performs resilient health polling against the live public IP (`/actuator/health`) until HTTP 200 `UP` is verified.
 
 ---
 
@@ -48,8 +69,8 @@ Content-Type: application/json
   "shortCode": "1",
   "shortUrl": "http://localhost:8080/1",
   "longUrl": "https://spring.io/projects/spring-boot",
-  "createdAt": "2026-08-25T02:00:00.000000",
-  "expiresAt": "2026-08-25T03:00:00.000000"
+  "createdAt": "2026-09-01T12:00:00.000000",
+  "expiresAt": "2026-09-01T13:00:00.000000"
 }
 ```
 
@@ -90,10 +111,10 @@ docker compose up -d
 
 ## Automated Testing & Load Testing
 
-### Unit and Slice Test Suite
-Execute all unit, service, repository, and controller tests:
+### Unit and Integration Test Suite
+Execute all unit, slice, repository, and Testcontainers integration tests:
 ```bash
-./mvnw clean test -Dtest="!UrlMappingJpaTest,!UrlShortenerApplicationTests"
+./mvnw clean test
 ```
 
 ### Load Testing with Grafana k6
@@ -131,7 +152,7 @@ src/
 │       ├── db/migration/    # Flyway SQL schema migrations
 │       ├── scripts/         # Redis Lua scripts (token_bucket.lua)
 │       └── application.yml  # Application properties & metrics exposure
-└── test/                    # Comprehensive unit, mock and integration tests
+└── test/                    # Comprehensive unit, mock and Testcontainers integration tests
 ```
 
 ---
